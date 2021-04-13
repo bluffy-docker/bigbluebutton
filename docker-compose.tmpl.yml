@@ -15,6 +15,7 @@ x-html5-backend: &html5backend
     - mongodb
     - etherpad
   environment: &html5backend-env
+    SCREENSHARE_PLAY_START_ENABLED: "true"  
     DOMAIN: ${DOMAIN}
     CLIENT_TITLE: ${CLIENT_TITLE}
     ETHERPAD_API_KEY: ${ETHERPAD_API_KEY}
@@ -47,6 +48,7 @@ services:
       test: wget --no-verbose --tries=1 --spider http://10.7.7.2:8090/bigbluebutton/api || exit 1
       start_period: 2m
     environment:
+      SCREENSHARE_PLAY_START_ENABLED: "true"    
       DEV_MODE: ${DEV_MODE:-}
       DOMAIN: ${DOMAIN}
       ENABLE_RECORDING: ${ENABLE_RECORDING:-false}
@@ -102,6 +104,7 @@ services:
       - SYS_NICE
       - SYS_RESOURCE
     environment:
+      SCREENSHARE_PLAY_START_ENABLED: "true"    
       DOMAIN: ${DOMAIN}
       EXTERNAL_IPv4: ${EXTERNAL_IPv4}
       EXTERNAL_IPv6: ${EXTERNAL_IPv6:-::1}
@@ -127,13 +130,24 @@ services:
       - bigbluebutton:/var/bigbluebutton
       - html5-static:/html5-static:ro
       - ${DEFAULT_PRESENTATION:-/dev/null}:/etc/nginx/html/default.pdf
-    network_mode: host
+    #network_mode: host
+    networks:
+      - proxy
+      - bbb-net    
     extra_hosts:
       - "host.docker.internal:10.7.7.1"
       - "core:10.7.7.2"
       - "etherpad:10.7.7.4"
       - "webrtc-sfu:10.7.7.10"
       - "html5:10.7.7.11"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bbb-secure.entrypoints=secure"
+      - "traefik.http.routers.bbb-secure.rule=Host(`${DOMAIN}`)"  
+      - "traefik.http.routers.bbb-secure.tls=true"
+      - "traefik.http.routers.bbb-secure.tls.certresolver=le"
+      - "traefik.http.routers.bbb-secure.service=bbb"
+      - "traefik.http.services.bbb.loadbalancer.server.port=8080"      
 
   etherpad:
     build: mod/etherpad
@@ -323,6 +337,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      SCREENSHARE_PLAY_START_ENABLED: "true"    
       DB_ADAPTER: postgresql
       DB_HOST: postgres
       DB_NAME: greenlight
@@ -382,3 +397,5 @@ networks:
       driver: default
       config:
         - subnet: "10.7.7.0/24"
+  proxy:
+    external: true        
